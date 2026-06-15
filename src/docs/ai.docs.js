@@ -1,0 +1,280 @@
+/**
+ * @openapi
+ * /api/ai/{beltId}/latest:
+ *   get:
+ *     tags:
+ *       - AI Recommendations
+ *     summary: Get the latest AI recommendation for a belt
+ *     description: |
+ *       Returns the most recent AI-generated recommendation for the specified belt.
+ *       - If no data exists yet, returns a WAITING_FOR_ANALYSIS state
+ *       - Cache TTL: 3 seconds
+ *       - Coach role required
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: beltId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: The belt ID (e.g., BELT_A001)
+ *         example: BELT_A001
+ *     responses:
+ *       200:
+ *         description: Successfully retrieved AI recommendation
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   oneOf:
+ *                     - $ref: '#/components/schemas/AIRecommendation'
+ *                     - $ref: '#/components/schemas/AIWaitingState'
+ *       401:
+ *         description: Unauthorized - Invalid or missing token
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *       403:
+ *         description: Forbidden - Coach role required
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *       500:
+ *         description: Internal server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
+
+/**
+ * @openapi
+ * /api/ai/{beltId}/timeline:
+ *   get:
+ *     tags:
+ *       - AI Recommendations
+ *     summary: Get timeline of AI recommendations
+ *     description: Returns historical AI recommendations for charts/analytics
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: beltId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         example: BELT_A001
+ *       - in: query
+ *         name: startDate
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: date-time
+ *         description: Start date (ISO 8601)
+ *         example: 2026-06-01T00:00:00Z
+ *       - in: query
+ *         name: endDate
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: date-time
+ *         description: End date (ISO 8601)
+ *         example: 2026-06-13T23:59:59Z
+ *       - in: query
+ *         name: limit
+ *         required: false
+ *         schema:
+ *           type: integer
+ *           default: 200
+ *           maximum: 1000
+ *         description: Maximum number of records
+ *     responses:
+ *       200:
+ *         description: Timeline data retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 count:
+ *                   type: integer
+ *                 data:
+ *                   type: array
+ *                   items:
+ *                     $ref: '#/components/schemas/AITimelineEntry'
+ *       400:
+ *         description: Bad request - missing required parameters
+ *       401:
+ *         description: Unauthorized
+ */
+
+/**
+ * @openapi
+ * /api/ai/{beltId}/health:
+ *   get:
+ *     tags:
+ *       - AI Recommendations
+ *     summary: Get AI health status for a belt
+ *     description: Returns the health/status of the AI system for a specific belt
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: beltId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         example: BELT_A001
+ *     responses:
+ *       200:
+ *         description: Health status retrieved
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 data:
+ *                   $ref: '#/components/schemas/AIHealthStatus'
+ */
+
+/**
+ * @openapi
+ * components:
+ *   schemas:
+ *     AIRecommendation:
+ *       type: object
+ *       properties:
+ *         beltId:
+ *           type: string
+ *           example: BELT_A001
+ *         timestamp:
+ *           type: string
+ *           format: date-time
+ *         ageSinceLastUpdate:
+ *           type: integer
+ *           description: Seconds since the last update
+ *         isStale:
+ *           type: boolean
+ *           description: True if data is older than 30 seconds
+ *         isInWarmup:
+ *           type: boolean
+ *           description: True if still in warmup phase (< 120 seconds)
+ *         metrics:
+ *           type: object
+ *           properties:
+ *             power:
+ *               type: number
+ *               nullable: true
+ *               example: 145.5
+ *             crampRisk:
+ *               type: number
+ *               nullable: true
+ *               example: 23.0
+ *             momentum:
+ *               type: number
+ *               nullable: true
+ *               example: 65.0
+ *             recoveryTimeMin:
+ *               type: integer
+ *               nullable: true
+ *             timeToFailMin:
+ *               type: integer
+ *               nullable: true
+ *         status:
+ *           type: object
+ *           properties:
+ *             playerState:
+ *               type: integer
+ *               nullable: true
+ *               enum: [2, 0, 1, 3]
+ *             alertLevel:
+ *               type: string
+ *               enum: [WARMUP, NORMAL, LOW_CONFIDENCE, WARNING, CRITICAL, STALE]
+ *             substitutionWindow:
+ *               type: number
+ *               nullable: true
+ *             crampEvent:
+ *               type: string
+ *               nullable: true
+ *         recommendation:
+ *           type: object
+ *           properties:
+ *             coachAdvice:
+ *               type: string
+ *             isUrgent:
+ *               type: boolean
+ * 
+ *     AITimelineEntry:
+ *       type: object
+ *       properties:
+ *         timestamp:
+ *           type: string
+ *           format: date-time
+ *         power:
+ *           type: number
+ *           nullable: true
+ *         crampRisk:
+ *           type: number
+ *           nullable: true
+ *         momentum:
+ *           type: number
+ *           nullable: true
+ *         playerState:
+ *           type: integer
+ *           nullable: true
+ *           enum: [2, 0, 1, 3]
+ *         alertLevel:
+ *           type: string
+ *           enum: [WARMUP, NORMAL, LOW_CONFIDENCE, WARNING, CRITICAL, STALE]
+ *
+ *     AIWaitingState:
+ *       type: object
+ *       properties:
+ *         beltId:
+ *           type: string
+ *         status:
+ *           type: string
+ *           enum: [WAITING_FOR_ANALYSIS]
+ *         message:
+ *           type: string
+ *         hint:
+ *           type: string
+ * 
+ *     AIHealthStatus:
+ *       type: object
+ *       properties:
+ *         beltId:
+ *           type: string
+ *         status:
+ *           type: string
+ *           enum: [WAITING, ACTIVE, STALE]
+ *         lastUpdate:
+ *           type: string
+ *           format: date-time
+ *         ageSeconds:
+ *           type: integer
+ *         dataPointsLast10Min:
+ *           type: integer
+ * 
+ *     Error:
+ *       type: object
+ *       properties:
+ *         success:
+ *           type: boolean
+ *           example: false
+ *         error:
+ *           type: string
+ *           example: "Invalid token"
+ */

@@ -1,0 +1,1 @@
+module.exports = { openapi: '3.0.0', info: { title: 'test', version: '1.0.0' } };
