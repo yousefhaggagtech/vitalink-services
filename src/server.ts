@@ -78,4 +78,9 @@ process.on('SIGTERM', async () => {
   process.exit(0);
 });
 
+
+db.connect().catch((err) => {
+  logger.error('DB connection failed:', err);
+});
+
 export default app;
