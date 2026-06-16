@@ -4,74 +4,84 @@ import { logger } from '../utils/logger';
 
 class DatabaseConnection {
   private pool: sql.ConnectionPool | null = null;
-  private reconnectAttempts = 0;
-  private readonly maxReconnectAttempts = 5;
+  private connectionPromise: Promise<sql.ConnectionPool> | null = null;
 
   async connect(): Promise<sql.ConnectionPool> {
-    try {
-      const config: sql.config = {
-        server: env.db.server,
-        port: env.db.port,
-        database: env.db.database,
-        user: env.db.user,
-        password: env.db.password,
-        options: {
-          encrypt: env.db.encrypt,
-          trustServerCertificate: !env.isProduction,
-          enableArithAbort: true,
-        },
-        pool: {
-          max: 1,
-          min: 0,
-          idleTimeoutMillis: 30000,
-        },
-        requestTimeout: 30000,
-        connectionTimeout: 15000,
-      };
-
-      if (this.pool) {
-        return this.pool;
-      }
-
-      this.pool = await new sql.ConnectionPool(config).connect();
-      
-      this.pool.on('error', (err) => {
-        logger.error('SQL Pool error:', err);
-      });
-
-      this.reconnectAttempts = 0;
-      logger.info('✅ Database connected successfully');
+    if (this.pool?.connected) {
       return this.pool;
+    }
+
+    if (this.connectionPromise) {
+      return this.connectionPromise;
+    }
+
+    this.connectionPromise = this.createPool();
+
+    try {
+      return await this.connectionPromise;
+    } finally {
+      this.connectionPromise = null;
+    }
+  }
+
+  private async createPool(): Promise<sql.ConnectionPool> {
+    const config: sql.config = {
+      server: env.db.server,
+      port: env.db.port,
+      database: env.db.database,
+      user: env.db.user,
+      password: env.db.password,
+      options: {
+        encrypt: env.db.encrypt,
+        trustServerCertificate: !env.isProduction,
+        enableArithAbort: true,
+      },
+      pool: {
+        max: 1,
+        min: 0,
+        idleTimeoutMillis: 30000,
+      },
+      requestTimeout: 30000,
+      connectionTimeout: 15000,
+    };
+
+    const pool = new sql.ConnectionPool(config);
+
+    pool.on('error', (err) => {
+      logger.error('SQL Pool error:', err);
+      if (this.pool === pool) {
+        this.pool = null;
+      }
+    });
+
+    try {
+      const connectedPool = await pool.connect();
+      this.pool = connectedPool;
+      logger.info('Database connected successfully');
+      return connectedPool;
     } catch (error) {
-      logger.error('❌ Database connection failed:', error);
-      await this.handleReconnect();
+      await pool.close().catch((closeError) => {
+        logger.warn('Failed to close SQL pool after connection error:', closeError);
+      });
+      this.pool = null;
+      logger.error('Database connection failed:', error);
       throw error;
     }
   }
 
-  private async handleReconnect(): Promise<void> {
-    if (this.reconnectAttempts < this.maxReconnectAttempts) {
-      this.reconnectAttempts++;
-      const delay = Math.pow(2, this.reconnectAttempts) * 1000;
-      logger.warn(`Reconnecting... attempt ${this.reconnectAttempts} in ${delay}ms`);
-      await new Promise(resolve => setTimeout(resolve, delay));
-      await this.connect();
-      return;
+  async getPool(): Promise<sql.ConnectionPool> {
+    if (!this.pool?.connected) {
+      logger.warn('Database pool not ready; connecting now...');
     }
-    logger.error('❌ Max reconnect attempts reached. Server keeping alive for troubleshooting.');
-  }
 
-  getPool(): sql.ConnectionPool {
-    if (!this.pool) {
-      throw new Error('Database not initialized');
-    }
-    return this.pool;
+    return this.connect();
   }
 
   async close(): Promise<void> {
     if (this.pool) {
-      await this.pool.close();
+      const pool = this.pool;
       this.pool = null;
+      await pool.close();
     }
   }
 }

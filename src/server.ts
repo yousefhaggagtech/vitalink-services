@@ -7,14 +7,14 @@ import { db } from './config/database';
 import { env } from './config/env';
 import { apiRouter } from './routes';
 import { errorHandler } from './middleware/error.middleware';
-import { setupSwagger } from './config/swagger';  
+import { setupSwagger } from './config/swagger';
 import { logger } from './utils/logger';
 
 const app = express();
 
 app.use(
   helmet({
-    contentSecurityPolicy: false, 
+    contentSecurityPolicy: false,
   })
 );
 app.use(cors({
@@ -32,9 +32,10 @@ if (!env.isProduction) {
 
 app.get('/health', async (_req, res) => {
   try {
-    await db.getPool().request().query('SELECT 1');
-    res.json({ 
-      status: 'healthy', 
+    const pool = await db.getPool();
+    await pool.request().query('SELECT 1');
+    res.json({
+      status: 'healthy',
       service: env.serviceName,
       timestamp: new Date().toISOString(),
     });
@@ -51,36 +52,37 @@ app.use((_req, res) => {
 
 app.use(errorHandler);
 
-if (require.main === module) {
+async function start(): Promise<void> {
   const TARGET_PORT = env.port || 4000;
 
-  const server = app.listen(TARGET_PORT, '0.0.0.0', async () => {
-    logger.info(`🚀 ${env.serviceName} running on port ${TARGET_PORT}`);
-    logger.info(`🤖 AI Service ready`);
-    logger.info(`📚 Swagger docs: http://localhost:${TARGET_PORT}/api-docs`);
-    
-    try {
-      await db.connect();
-    } catch (dbError) {
-      logger.error('❌ Database connection failed after server start:', dbError);
-    }
+  try {
+    await db.connect();
+  } catch (dbError) {
+    logger.error('Database warm-up failed; requests will retry lazily:', dbError);
+  }
+
+  const server = app.listen(TARGET_PORT, '0.0.0.0', () => {
+    logger.info(`${env.serviceName} running on port ${TARGET_PORT}`);
+    logger.info('AI Service ready');
+    logger.info(`Swagger docs: http://localhost:${TARGET_PORT}/api-docs`);
   });
 
-  server.on('error', (error: any) => {
-    logger.error('🔥 Server listening error:', error);
+  server.on('error', (error: Error) => {
+    logger.error('Server listening error:', error);
   });
+}
 
+if (require.main === module) {
+  start().catch((error) => {
+    logger.error('Failed to start server:', error);
+    process.exit(1);
+  });
 }
 
 process.on('SIGTERM', async () => {
   logger.info('Shutting down...');
   await db.close();
   process.exit(0);
-});
-
-
-db.connect().catch((err) => {
-  logger.error('DB connection failed:', err);
 });
 
 export default app;

@@ -7,7 +7,7 @@ export class AIRepository {
 
   async getLatestByBelt(beltId: string): Promise<AIRecommendationRecord | null> {
     try {
-      const pool = db.getPool();
+      const pool = await db.getPool();
       
       const result = await pool.request()
         .input('beltId', sql.NVarChar, beltId)
@@ -46,7 +46,7 @@ export class AIRepository {
     limit: number = 200
   ): Promise<AIRecommendationRecord[]> {
     try {
-      const pool = db.getPool();
+      const pool = await db.getPool();
       
       const result = await pool.request()
         .input('beltId', sql.NVarChar, beltId)
@@ -83,7 +83,7 @@ export class AIRepository {
 
   async getRecentCount(beltId: string, minutes: number = 10): Promise<number> {
     try {
-      const pool = db.getPool();
+      const pool = await db.getPool();
       
       const result = await pool.request()
         .input('beltId', sql.NVarChar, beltId)
