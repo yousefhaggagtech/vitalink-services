@@ -18,8 +18,9 @@ app.use(
   })
 );
 app.use(cors({
-  origin: 'https://vitalink-six.vercel.app',
-  credentials: true,
+  origin: '*',
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
 }));
 app.use(compression());
 app.use(express.json({ limit: '10mb' }));
