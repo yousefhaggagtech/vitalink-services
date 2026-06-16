@@ -25,7 +25,9 @@ app.use(compression());
 app.use(express.json({ limit: '10mb' }));
 app.use(morgan(env.isProduction ? 'combined' : 'dev'));
 
-setupSwagger(app);
+if (!env.isProduction) {
+  setupSwagger(app);
+}
 
 app.get('/health', async (_req, res) => {
   try {
@@ -48,7 +50,7 @@ app.use((_req, res) => {
 
 app.use(errorHandler);
 
-async function start() {
+if (require.main === module) {
   const TARGET_PORT = env.port || 4000;
 
   const server = app.listen(TARGET_PORT, '0.0.0.0', async () => {
@@ -67,7 +69,6 @@ async function start() {
     logger.error('🔥 Server listening error:', error);
   });
 
-  setInterval(() => {}, 1000);
 }
 
 process.on('SIGTERM', async () => {
@@ -76,4 +77,4 @@ process.on('SIGTERM', async () => {
   process.exit(0);
 });
 
-start();
+export default app;

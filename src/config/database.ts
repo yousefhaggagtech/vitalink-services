@@ -21,8 +21,8 @@ class DatabaseConnection {
           enableArithAbort: true,
         },
         pool: {
-          max: 20,
-          min: 2,
+          max: 1,
+          min: 0,
           idleTimeoutMillis: 30000,
         },
         requestTimeout: 30000,
