@@ -18,7 +18,7 @@ app.use(
   })
 );
 app.use(cors({
-  origin: env.allowedOrigins,
+  origin: 'https://vitalink-six.vercel.app',
   credentials: true,
 }));
 app.use(compression());
