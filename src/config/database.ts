@@ -27,7 +27,7 @@ class DatabaseConnection {
   private async createPool(): Promise<sql.ConnectionPool> {
     const config: sql.config = {
       server: env.db.server,
-      port: env.db.port,
+      port: 64816, 
       database: env.db.database,
       user: env.db.user,
       password: env.db.password,
